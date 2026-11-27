@@ -107,7 +107,7 @@ export default function Services({ onNavigate }) {
   return (
     <main className="kf-services-page">
       {/* Hero */}
-      <section className="kf-section kf-section-dark" style={{ padding: '56px 0 64px' }}>
+      <section className="kf-section kf-section-dark kf-services-hero">
         <div className="kf-container">
           <span className="kf-kicker kf-kicker-light">SERVICES</span>
           <h1 className="kf-title-lg" style={{ color: '#ffffff', maxWidth: '800px' }}>
@@ -129,7 +129,7 @@ export default function Services({ onNavigate }) {
       <section className="kf-section">
         <div className="kf-container">
           <h2 className="kf-title-md">What we offer</h2>
-          <div className="kf-grid-3">
+          <div className="kf-grid-3 kf-services-grid">
             {servicesList.map((svc, idx) => (
               <ServiceCard
                 key={idx}
@@ -151,7 +151,7 @@ export default function Services({ onNavigate }) {
           <h2 className="kf-title-md">How we work</h2>
           <p className="kf-subtitle">A clear process from first call to ongoing support.</p>
 
-          <div className="kf-grid-4">
+          <div className="kf-grid-4 kf-process-grid">
             {steps.map((st, idx) => (
               <div key={idx} className="kf-step-card">
                 <div className="kf-step-badge">{st.step}</div>

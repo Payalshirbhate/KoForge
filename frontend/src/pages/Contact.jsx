@@ -1,5 +1,5 @@
 import { useState } from 'react';
-
+import { CircleCheck } from "lucide-react";
 export default function Contact() {
   const [formData, setFormData] = useState({
     fullName: '',
@@ -12,6 +12,8 @@ export default function Contact() {
   });
 
   const [messageSent, setMessageSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -21,14 +23,81 @@ export default function Contact() {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.consent) {
-      alert('Please check the consent box to proceed.');
-      return;
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+
+  if (loading) return;
+
+  if (!formData.consent) {
+    setError('Please check the consent box to proceed.');
+    return;
+  }
+
+  if (
+    formData.phone.trim() &&
+    !/^[0-9]{10}$/.test(formData.phone.trim())
+  ) {
+    setError('Phone number must contain exactly 10 digits.');
+    return;
+  }
+
+  if (
+    formData.message.trim().length < 10 ||
+    (formData.message.match(/[\p{L}\p{N}]/gu) || []).length < 5
+  ) {
+    setError('Please enter a meaningful message of at least 10 characters.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/contact`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: formData.fullName.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim() || null,
+          company: formData.company.trim() || null,
+          subject: formData.subject,
+          message: formData.message.trim(),
+          consent: formData.consent,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const detail = Array.isArray(data.detail)
+        ? data.detail.map((item) => item.msg).join(' ')
+        : data.detail;
+
+      throw new Error(
+        detail || 'Unable to submit your enquiry.'
+      );
     }
+
     setMessageSent(true);
-  };
+
+  } catch (err) {
+    setError(
+      err instanceof TypeError
+        ? 'Unable to connect to the server. Please try again.'
+        : err.message
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const faqs = [
     {
@@ -112,8 +181,8 @@ export default function Contact() {
 
               {messageSent ? (
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                  <div style={{ color: 'var(--status-green)', fontSize: '28px', marginBottom: '12px' }}>
-                    &check;
+                  <div className="success-icon">
+                    <CircleCheck size={48} color="#10b981" />
                   </div>
                   <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px' }}>
                     Thank you. Our team will reply within 1 business day.
@@ -176,6 +245,8 @@ export default function Contact() {
                         id="phone"
                         name="phone"
                         className="kf-input"
+                        inputMode="numeric"
+                        placeholder="Enter 10-digit phone number"
                         value={formData.phone}
                         onChange={handleChange}
                       />
@@ -203,7 +274,7 @@ export default function Contact() {
                       value={formData.subject}
                       onChange={handleChange}
                     >
-                      <option value="General">General</option>
+                     <option value="General">General</option>
                       <option value="Sales">Sales</option>
                       <option value="Support">Support</option>
                       <option value="Partnership">Partnership</option>
@@ -245,13 +316,34 @@ export default function Contact() {
                     </label>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="kf-btn kf-btn-primary kf-btn-block"
-                    style={{ padding: '12px', marginTop: '10px' }}
+                  
+                {error && (
+                  <p
+                    role="alert"
+                    style={{
+                      color: '#dc2626',
+                      fontSize: '0.85rem',
+                      marginTop: '10px'
+                    }}
                   >
-                    Send message
-                  </button>
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  className="kf-btn kf-btn-primary kf-btn-block"
+                  style={{
+                    padding: '12px',
+                    marginTop: '10px',
+                    opacity: loading ? 0.7 : 1,
+                    cursor: loading ? 'not-allowed' : 'pointer'
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? 'Sending message...' : 'Send message'}
+                </button>
+
                 </form>
               )}
             </div>

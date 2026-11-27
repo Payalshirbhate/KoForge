@@ -1,0 +1,23 @@
+.kf-consultation-form, .kf-consultation-form * { box-sizing: border-box; }
+.kf-consultation-form { min-width: 0; }
+.kf-consultation-form .kf-form-row > div, .kf-appointment-grid > div { min-width: 0; }
+.kf-consultation-form .kf-input, .kf-consultation-form .kf-select, .kf-consultation-form .kf-textarea { width: 100%; min-width: 0; }
+.kf-consultation-form .kf-input, .kf-consultation-form .kf-select { min-height: 44px; }
+.kf-appointment { margin: 20px 0; padding: 16px; border: 1px solid #dbe3ed; border-radius: 10px; background: #ffffff; }
+.kf-appointment-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--slate-900); }
+.kf-clear-date { border:0; background:transparent; color:#a63b12; cursor:pointer; padding:8px; font:inherit; }
+.kf-appointment-help { font-size: 13px; color:var(--slate-600); margin: 4px 0 12px; line-height:1.5; }
+.kf-appointment-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:start; }
+.kf-date-trigger { display:flex; align-items:center; justify-content:space-between; background:white; text-align:left; cursor:pointer; font:inherit; }
+.kf-calendar { margin-top:8px; background:white; border:1px solid #dbe3ed; border-radius:8px; padding:8px; width:100%; }
+.kf-date-field:has(.kf-calendar) { grid-column:1 / -1; }
+.kf-calendar-header { display:flex; align-items:center; justify-content:space-between; gap:4px; margin-bottom:8px; font-size:14px; }
+.kf-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; text-align:center; }
+.kf-calendar-grid span { font-size:12px; padding:6px 0; color:#475569; }
+.kf-calendar button { min-width:0; min-height:36px; border:0; border-radius:5px; background:white; color:#102039; cursor:pointer; font:inherit; padding:0; }
+.kf-calendar-header button { width:36px; font-size:22px; }
+.kf-calendar button:disabled { color:#a0a8b4; background:#f1f5f9; cursor:not-allowed; }
+.kf-calendar button[aria-pressed="true"] { background:#b84016; color:white; }
+.kf-calendar button:not(:disabled):hover { outline:1px solid #b84016; }
+.kf-consultation-upload { margin-bottom:16px; }
+@media(max-width:600px) { .kf-consultation-form .kf-form-row, .kf-appointment-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:14px; } .kf-appointment { padding:12px; } .kf-consultation-form .kf-input, .kf-consultation-form .kf-select, .kf-consultation-form .kf-textarea { font-size:16px; } .kf-calendar button { min-height:40px; } }

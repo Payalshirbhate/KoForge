@@ -1,4 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import '../styles/Consultation.css';
+
+const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const timeOptions = Array.from({length: 96}, (_, i) => {
+  const h = Math.floor(i / 4), m = (i % 4) * 15;
+  return { value: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, label: `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h < 12 ? 'AM' : 'PM'}` };
+});
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = ['pdf', 'dwg', 'xlsx'];
@@ -21,11 +28,30 @@ export default function Consultation() {
     phone: '',
     cityState: '',
     preferredMode: 'Phone call',
-    preferredDateTime: '',
+    preferredDate: '',
+    preferredTime: '',
   });
 
-  const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [validationMessage, setValidationMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const today = localDate();
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const changeMonth = (delta) => setCalendarMonth(new Date(year, month + delta, 1));
+  const chooseDate = (date) => {
+    setFormData(prev => ({...prev, preferredDate: date, preferredTime: ''}));
+    setCalendarOpen(false);
+    setValidationMessage('');
+    setSuccess(false);
+  };
 
   const conveyorOptions = [
     'Belt',
@@ -37,10 +63,17 @@ export default function Consultation() {
     'Not sure',
   ];
 
-  const handleTextChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+ const handleTextChange = (e) => {
+  const { name, value } = e.target;
+
+  setFormData((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+
+  setValidationMessage('');
+  setSuccess(false);
+};
 
   const toggleConveyorType = (type) => {
     setValidationMessage('');
@@ -58,36 +91,258 @@ export default function Consultation() {
 
   const handleFileChange = (e) => {
     setValidationMessage('');
+    setSuccess(false);
     const file = e.target.files?.[0];
     if (!file) {
-      setFileName('');
+      setSelectedFile(null);
       return;
     }
     const extension = file.name.split('.').pop()?.toLowerCase();
-    if (!ALLOWED_EXTENSIONS.includes(extension) || file.size > MAX_FILE_SIZE) {
-      setValidationMessage('Only PDF, DWG or XLSX files up to 10 MB are allowed.');
+    if (!ALLOWED_EXTENSIONS.includes(extension) || file.size > MAX_FILE_SIZE || file.size === 0) {
+      setValidationMessage('Choose a non-empty PDF, DWG or XLSX file up to 10 MB.');
       e.target.value = '';
-      setFileName('');
+      setSelectedFile(null);
       return;
     }
-    setFileName(file.name);
+    setSelectedFile(file);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.conveyorTypes.length === 0) {
-      setValidationMessage('Please select at least one conveyor type.');
+  const removeAttachment = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setValidationMessage('');
+    setSuccess(false);
+  };
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (loading) return;
+
+  setValidationMessage('');
+  setSuccess(false);
+
+  // Validate conveyor types
+  if (formData.conveyorTypes.length === 0) {
+    setValidationMessage(
+      'Please select at least one conveyor type.'
+    );
+    return;
+  }
+
+  // Validate conveyor lines
+  const lines = Number(formData.conveyorLines);
+
+  if (!Number.isInteger(lines) || lines < 1 || lines > 500) {
+    setValidationMessage(
+      'Conveyor lines must be between 1 and 500.'
+    );
+    return;
+  }
+
+  // Validate conveyor length
+  if (
+    formData.conveyorLength !== '' &&
+    (!Number.isFinite(Number(formData.conveyorLength)) ||
+      Number(formData.conveyorLength) < 0)
+  ) {
+    setValidationMessage(
+      'Please enter a valid conveyor length.'
+    );
+    return;
+  }
+
+  // Validate load capacity
+  if (
+    formData.maxLoadCapacity !== '' &&
+    (!Number.isFinite(Number(formData.maxLoadCapacity)) ||
+      Number(formData.maxLoadCapacity) < 0)
+  ) {
+    setValidationMessage(
+      'Please enter a valid load capacity.'
+    );
+    return;
+  }
+
+  // Validate project requirements
+  if (
+    formData.projectRequirements.trim().length < 10 ||
+    !/[a-zA-Z]/.test(formData.projectRequirements)
+  ) {
+    setValidationMessage(
+      'Please enter meaningful project requirements of at least 10 characters.'
+    );
+    return;
+  }
+
+  // Validate contact name
+ if (
+  formData.contactNameDesignation.trim().length < 2 ||
+  !/^[\p{L}][\p{L}\s.,'’&()/-]*$/u.test(
+    formData.contactNameDesignation.trim()
+  )
+) {
+  setValidationMessage(
+    'Please enter a valid contact name and designation without numbers.'
+  );
+  return;
+}
+
+  // Validate company name
+  if (!formData.company.trim()) {
+    setValidationMessage(
+      'Please enter your company name.'
+    );
+    return;
+  }
+
+  // Validate phone number
+  if (!/^[0-9]{10}$/.test(formData.phone.trim())) {
+    setValidationMessage(
+      'Phone number must contain exactly 10 digits.'
+    );
+    return;
+  }
+
+  // Validate optional appointment as a complete pair
+  const { preferredDate, preferredTime } = formData;
+  const preferredDateTime = preferredDate && preferredTime
+    ? `${preferredDate}T${preferredTime}` : '';
+  if (preferredDate || preferredTime) {
+    if (!preferredDateTime) {
+      setValidationMessage('Please select both a date and a time, or clear the appointment.');
       return;
     }
-    if (formData.preferredDateTime) {
-      const selectedDate = new Date(formData.preferredDateTime);
-      if (Number.isNaN(selectedDate.getTime()) || selectedDate.getDay() === 0) {
-        setValidationMessage('Please choose a date between Monday and Saturday.');
-        return;
-      }
+    const selectedDate = new Date(preferredDateTime);
+    if (Number.isNaN(selectedDate.getTime()) || selectedDate <= new Date()) {
+      setValidationMessage('Please select a future date and time.');
+      return;
     }
-    setValidationMessage('Form validated successfully. This is a frontend preview; your request has NOT been sent or saved. FastAPI integration is still pending.');
-  };
+    if (selectedDate.getDay() === 0) {
+      setValidationMessage('Please choose a date between Monday and Saturday.');
+      return;
+    }
+  }
+
+  setLoading(true);
+
+  try {
+    const payload = {
+          required_service: formData.requiredService,
+          industry_type: formData.industryType,
+          conveyor_types: formData.conveyorTypes,
+          conveyor_lines: lines,
+
+          conveyor_length:
+            formData.conveyorLength === ''
+              ? null
+              : Number(formData.conveyorLength),
+
+          max_load_capacity:
+            formData.maxLoadCapacity === ''
+              ? null
+              : Number(formData.maxLoadCapacity),
+
+          existing_control_system:
+            formData.existingControlSystem,
+
+          expected_timeline: formData.expectedTimeline,
+          budget_range: formData.budgetRange,
+
+          project_requirements:
+            formData.projectRequirements.trim(),
+
+          contact_name_designation:
+            formData.contactNameDesignation.trim(),
+
+          company: formData.company.trim(),
+          business_email: formData.businessEmail.trim(),
+          phone: formData.phone.trim(),
+          city_state: formData.cityState.trim(),
+          preferred_mode: formData.preferredMode,
+
+          preferred_date_time:
+            preferredDateTime || null,
+    };
+
+    let options = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    };
+
+    if (selectedFile) {
+      const multipart = new FormData();
+      multipart.append('data', JSON.stringify(payload));
+      multipart.append('attachment', selectedFile);
+      options = { method: 'POST', body: multipart };
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/consultation`,
+      options
+    );
+
+    const data = await response.json();
+
+    // Handle backend validation errors
+    if (!response.ok) {
+      const detail = Array.isArray(data.detail)
+        ? data.detail.map((item) => item.msg).join(' ')
+        : data.detail;
+
+      throw new Error(
+        detail || 'Unable to submit consultation request.'
+      );
+    }
+
+    // Successful submission
+    setSuccess(true);
+    setValidationMessage(data.message);
+
+    // Reset form only after successful submission
+    setFormData({
+      requiredService: 'Conveyor Management Systems',
+      industryType: 'Manufacturing & Assembly',
+      projectRequirements: '',
+      conveyorTypes: ['Belt'],
+      conveyorLines: '',
+      conveyorLength: '',
+      maxLoadCapacity: '',
+      existingControlSystem: 'None',
+      expectedTimeline: '1-3 months',
+      budgetRange: 'Not decided',
+      contactNameDesignation: '',
+      company: '',
+      businessEmail: '',
+      phone: '',
+      cityState: '',
+      preferredMode: 'Phone call',
+      preferredDate: '',
+    preferredTime: '',
+    });
+
+    // Reset attachment without clearing the success message
+    setSelectedFile(null);
+    setCalendarOpen(false);
+    setCalendarMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+  } catch (error) {
+    setSuccess(false);
+
+    setValidationMessage(
+      error instanceof TypeError
+        ? 'Unable to connect to the server. Please try again.'
+        : error.message
+    );
+
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   return (
     <main style={{ backgroundColor: 'var(--bg-page-alt)', padding: '44px 0 64px' }}>
@@ -137,7 +392,7 @@ export default function Consultation() {
 
           {/* Right Column: Full Form */}
           <div>
-            <div className="kf-form-card">
+            <div className="kf-form-card kf-consultation-form">
                 <form onSubmit={handleSubmit}>
                   {/* Service & Industry */}
                   <div className="kf-form-row">
@@ -334,7 +589,7 @@ export default function Consultation() {
                         id="contactNameDesignation"
                         name="contactNameDesignation"
                         className="kf-input"
-                        placeholder="Full name and role (e.g. Ramesh Sharma, Plant Head)"
+                        placeholder="Full name and designation"
                         required
                         value={formData.contactNameDesignation}
                         onChange={handleTextChange}
@@ -377,12 +632,15 @@ export default function Consultation() {
                       <input
                         type="tel"
                         id="phone"
-                        name="phone"
                         className="kf-input"
-                        placeholder="+91"
-                        required
+                        inputMode="numeric"
+                        name="phone"
                         value={formData.phone}
                         onChange={handleTextChange}
+                        placeholder="10-digit phone number"
+                        maxLength={10}
+                        pattern="[0-9]{10}"
+                        required
                       />
                     </div>
                   </div>
@@ -420,50 +678,106 @@ export default function Consultation() {
                     </div>
                   </div>
 
-                  {/* Date/Time & File attachment */}
-                  <div className="kf-form-row">
-                    <div>
-                      <label className="kf-label" htmlFor="preferredDateTime">Preferred date and time (Mon-Sat only)</label>
-                      <input
-                        type="datetime-local"
-                        id="preferredDateTime"
-                        name="preferredDateTime"
-                        className="kf-input"
-                        value={formData.preferredDateTime}
-                        onChange={handleTextChange}
-                      />
+                  <section className="kf-appointment" aria-label="Preferred appointment">
+                    <div className="kf-appointment-heading">
+                      <strong>Preferred appointment</strong>
+                      <button type="button" className="kf-clear-date" onClick={() => chooseDate('')}>Clear</button>
                     </div>
-
+                    <p className="kf-appointment-help">Optional · Monday–Saturday · Subject to confirmation</p>
+                    <div className="kf-appointment-grid">
+                      <div className="kf-date-field">
+                        <label className="kf-label" htmlFor="preferredDate">Preferred date</label>
+                        <button type="button" id="preferredDate" className="kf-input kf-date-trigger" aria-expanded={calendarOpen} onClick={() => setCalendarOpen(v => !v)}>
+                          {formData.preferredDate ? new Date(formData.preferredDate + 'T00:00:00').toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) : 'Select date'} <span aria-hidden="true">▾</span>
+                        </button>
+                        {calendarOpen && <div className="kf-calendar">
+                          <div className="kf-calendar-header">
+                            <button type="button" aria-label="Previous month" disabled={year === new Date().getFullYear() && month === new Date().getMonth()} onClick={() => changeMonth(-1)}>‹</button>
+                            <strong aria-live="polite">{calendarMonth.toLocaleDateString('en-IN', {month:'long', year:'numeric'})}</strong>
+                            <button type="button" aria-label="Next month" onClick={() => changeMonth(1)}>›</button>
+                          </div>
+                          <div className="kf-calendar-grid">
+                            {['Su','Mo','Tu','We','Th','Fr','Sa'].map(day => <span key={day}>{day}</span>)}
+                            {Array.from({length:firstDay}, (_, i) => <span key={`blank-${i}`} />)}
+                            {Array.from({length:days}, (_, i) => {
+                              const d = new Date(year, month, i+1);
+                              const date = localDate(d);
+                              return <button type="button" key={date} disabled={date < today || d.getDay() === 0} aria-label={d.toLocaleDateString('en-IN', {dateStyle:'full'})} aria-pressed={date === formData.preferredDate} onClick={() => chooseDate(date)}>{i+1}</button>;
+                            })}
+                          </div>
+                        </div>}
+                      </div>
+                      <div>
+                        <label className="kf-label" htmlFor="preferredTime">Preferred time</label>
+                        <select id="preferredTime" name="preferredTime" className="kf-select" value={formData.preferredTime} onChange={handleTextChange} disabled={!formData.preferredDate}>
+                          <option value="">Select time</option>
+                          {timeOptions.map(t => <option key={t.value} value={t.value} disabled={new Date(`${formData.preferredDate}T${t.value}`) <= new Date()}>{t.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </section>
+                  <div className="kf-form-group kf-consultation-upload">
                     <div>
-                      <label className="kf-label" htmlFor="specFile">Attach drawings or specs (PDF/DWG/XLSX, max 10 MB)</label>
-                      <input
-                        type="file"
-                        id="specFile"
-                        className="kf-input"
-                        accept=".pdf,.dwg,.xlsx"
-                        onChange={handleFileChange}
-                        style={{ padding: '6px 12px' }}
-                      />
-                      {fileName && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--slate-600)', marginTop: '4px' }}>
-                          Selected: {fileName}
-                        </div>
-                      )}
+                      <label className="kf-label" htmlFor="specFile">Supporting documents (optional)</label>
+                      <p className="kf-appointment-help">PDF, DWG or XLSX · Max 10 MB</p>
+                      <div style={{ position: 'relative', minWidth: 0 }}>
+                        <input
+                          type="file"
+                          id="specFile"
+                          ref={fileInputRef}
+                          className="kf-input"
+                          disabled={loading}
+                          accept=".pdf,.dwg,.xlsx"
+                          onChange={handleFileChange}
+                          style={{ padding: selectedFile ? '6px 38px 6px 12px' : '6px 12px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}
+                        />
+                        {selectedFile && (
+                          <button
+                            type="button"
+                            onClick={removeAttachment}
+                            disabled={loading}
+                            aria-label="Remove attachment"
+                            title="Remove attachment"
+                            style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', width: '32px', height: '32px', display: 'grid', placeItems: 'center', border: 0, background: 'transparent', color: '#dc2626', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '20px', lineHeight: 1, padding: 0 }}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="kf-btn kf-btn-primary kf-btn-block"
-                    style={{ marginTop: '10px', padding: '12px' }}
+                  
+                <button
+                  type="submit"
+                  className="kf-btn kf-btn-primary kf-btn-block"
+                  disabled={loading}
+                  style={{
+                    marginTop: '10px',
+                    padding: '12px',
+                    opacity: loading ? 0.7 : 1,
+                    cursor: loading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {loading
+                    ? 'Submitting request...'
+                    : 'Request a Consultation'}
+                </button>
+
+                {validationMessage && (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                      marginTop: '12px',
+                      fontSize: '0.875rem',
+                      color: success ? '#16a34a' : '#dc2626'
+                    }}
                   >
-                    Request a Consultation
-                  </button>
-                  {validationMessage && (
-                    <p role="status" aria-live="polite" style={{ marginTop: '12px', color: 'var(--slate-700)', fontSize: '0.875rem' }}>
-                      {validationMessage}
-                    </p>
-                  )}
+                    {validationMessage}
+                  </p>
+                )}
+
                 </form>
             </div>
           </div>

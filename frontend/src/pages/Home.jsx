@@ -84,9 +84,9 @@ export default function Home({ onNavigate }) {
   return (
     <main className="kf-home-page">
       {/* Hero Section */}
-      <section className="kf-section kf-section-dark" style={{ padding: '64px 0 72px' }}>
+      <section className="kf-section kf-section-dark kf-home-hero">
         <div className="kf-container">
-          <div className="kf-grid-2" style={{ alignItems: 'center', gap: '48px' }}>
+          <div className="kf-grid-2 kf-hero-grid">
             <div>
               <span className="kf-kicker kf-kicker-light">
                 INDUSTRIAL TECHNOLOGY & CONVEYOR SOLUTIONS
@@ -94,11 +94,11 @@ export default function Home({ onNavigate }) {
               <h1 className="kf-title-lg" style={{ color: '#ffffff' }}>
                 Move More. Monitor Everything. Forge Ahead.
               </h1>
-              <p className="kf-subtitle" style={{ fontSize: '1.05rem', color: 'var(--slate-300)', marginBottom: '28px' }}>
+             <p className="kf-subtitle kf-hero-description">
                 KoForge designs, automates and manages conveyor systems for factories, warehouses and ports,
                 backed by industrial software built in-house.
               </p>
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <div className="kf-hero-actions">
                 <button
                   className="kf-btn kf-btn-primary"
                   onClick={() => onNavigate('/consultation')}
@@ -160,7 +160,7 @@ export default function Home({ onNavigate }) {
       {/* Key Statistics Bar */}
       <section style={{ backgroundColor: '#ffffff', padding: '36px 0', borderBottom: '1px solid var(--slate-200)' }}>
         <div className="kf-container">
-          <div className="kf-grid-5" style={{ textAlign: 'center' }}>
+          <div className="kf-grid-5 kf-stats-grid">
             <div>
               <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--slate-900)' }}>240+</div>
               <div style={{ color: 'var(--slate-500)', fontSize: '0.85rem', fontWeight: 500 }}>Projects delivered</div>
